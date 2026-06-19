@@ -2,3 +2,4 @@
 {"ts":1781881025,"step":"m1","status":"done","detail":"scaffold+streak calc; unit 15/15 pass; build clean; sha 8ecdcdb"}
 {"ts":1781881499,"step":"m2","status":"done","detail":"localStorage store + CRUD UI; unit 35/35; browser-verified CRUD+persist PASS; sha 80199c3"}
 {"ts":1781881983,"step":"m3","status":"done","detail":"heatmap+toggle+streak display; unit 51/51; core flow browser-verified (cell fills, streak=1, persists); sha f75baa7"}
+{"ts":1781882362,"step":"m4","status":"done","detail":"export/import; unit 66/66; round-trip+bad-input browser-verified; sha 6d5adfd"}

@@ -1,5 +1,5 @@
 {"id":"m1","title":"Project scaffold + streak calculator (pure, unit-tested)","state":"done"}
 {"id":"m2","title":"localStorage habit store + Habit CRUD UI","state":"done"}
 {"id":"m3","title":"365-day heatmap grid + toggle day + streak display","state":"done"}
-{"id":"m4","title":"JSON export/import","state":"todo"}
+{"id":"m4","title":"JSON export/import","state":"done"}
 {"id":"m5","title":"Playwright e2e + browser verify full flow","state":"todo"}
