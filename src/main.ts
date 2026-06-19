@@ -1,9 +1,11 @@
-import { loadHabits, addHabit, renameHabit, deleteHabit, toggleDate, type Habit } from "./store.js";
+import { loadHabits, saveHabits, addHabit, renameHabit, deleteHabit, toggleDate, type Habit } from "./store.js";
 import { currentStreak, longestStreak } from "./streak.js";
 import { buildHeatmapGrid } from "./heatmap.js";
+import { exportHabits, importHabits } from "./io.js";
 
 let habits: Habit[] = loadHabits();
 let renamingId: string | null = null;
+let lastExportJson = "";
 
 const app = document.getElementById("app")!;
 
@@ -36,8 +38,34 @@ function render(): void {
       <ul data-testid="habit-list">
         ${habits.map((h) => renderHabitItem(h, today)).join("")}
       </ul>
+
+      <section data-testid="export-import-section">
+
+        <!-- EXPORT -->
+        <button data-testid="export-btn">Export habits to JSON</button>
+        <pre data-testid="export-output" style="display:none" aria-hidden="true"></pre>
+
+        <!-- IMPORT -->
+        <textarea
+          data-testid="import-input"
+          placeholder="Paste exported JSON here…"
+          rows="6"
+        ></textarea>
+        <button data-testid="import-btn">Import habits from JSON</button>
+        <p data-testid="import-error" style="color:red;display:none"></p>
+
+      </section>
     </div>
   `;
+
+  // Restore export output across re-renders
+  if (lastExportJson) {
+    const exportOutput = app.querySelector<HTMLElement>('[data-testid="export-output"]');
+    if (exportOutput) {
+      exportOutput.textContent = lastExportJson;
+      exportOutput.style.display = "block";
+    }
+  }
 
   wireEvents(today);
 }
@@ -205,6 +233,66 @@ function wireEvents(today: string): void {
       }
       renamingId = null;
       render();
+    }
+  });
+
+  // Export button
+  const exportBtn = app.querySelector<HTMLButtonElement>('[data-testid="export-btn"]');
+  exportBtn?.addEventListener("click", () => {
+    const json = exportHabits(habits);
+    lastExportJson = json;
+
+    // Show JSON in the output element (for e2e tests)
+    const exportOutput = app.querySelector<HTMLElement>('[data-testid="export-output"]');
+    if (exportOutput) {
+      exportOutput.textContent = json;
+      exportOutput.style.display = "block";
+    }
+
+    // Clear any previous import error
+    const importError = app.querySelector<HTMLElement>('[data-testid="import-error"]');
+    if (importError) {
+      importError.textContent = "";
+      importError.style.display = "none";
+    }
+
+    // Trigger real file download
+    const blob = new Blob([json], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "streaks-export.json";
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+
+  // Import button
+  const importBtn = app.querySelector<HTMLButtonElement>('[data-testid="import-btn"]');
+  importBtn?.addEventListener("click", () => {
+    const importInput = app.querySelector<HTMLTextAreaElement>('[data-testid="import-input"]');
+    const importError = app.querySelector<HTMLElement>('[data-testid="import-error"]');
+    const value = importInput?.value ?? "";
+
+    try {
+      const validated = importHabits(value);
+      saveHabits(validated);
+      habits = validated;
+
+      // Clear error
+      if (importError) {
+        importError.textContent = "";
+        importError.style.display = "none";
+      }
+
+      // Clear textarea before re-render so it doesn't persist
+      if (importInput) importInput.value = "";
+
+      render();
+    } catch (err) {
+      if (importError) {
+        importError.textContent = (err as Error).message;
+        importError.style.display = "block";
+      }
     }
   });
 }
