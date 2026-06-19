@@ -1,11 +1,22 @@
-import { loadHabits, addHabit, renameHabit, deleteHabit, type Habit } from "./store.js";
+import { loadHabits, addHabit, renameHabit, deleteHabit, toggleDate, type Habit } from "./store.js";
+import { currentStreak, longestStreak } from "./streak.js";
+import { buildHeatmapGrid } from "./heatmap.js";
 
 let habits: Habit[] = loadHabits();
 let renamingId: string | null = null;
 
 const app = document.getElementById("app")!;
 
+function todayISO(): string {
+  const d = new Date();
+  const y = d.getUTCFullYear();
+  const m = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(d.getUTCDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
 function render(): void {
+  const today = todayISO();
   app.innerHTML = `
     <div class="streaks-app">
       <form data-testid="add-habit-form">
@@ -23,15 +34,51 @@ function render(): void {
         <button type="submit" data-testid="add-habit-btn">Add</button>
       </form>
       <ul data-testid="habit-list">
-        ${habits.map((h) => renderHabitItem(h)).join("")}
+        ${habits.map((h) => renderHabitItem(h, today)).join("")}
       </ul>
     </div>
   `;
 
-  wireEvents();
+  wireEvents(today);
 }
 
-function renderHabitItem(h: Habit): string {
+function renderHeatmap(h: Habit, today: string): string {
+  const cells = buildHeatmapGrid(today, h.doneDates);
+  const cellHtml = cells
+    .map((c) => {
+      const classes = [
+        "heatmap-cell",
+        c.done ? "cell--done" : "",
+        !c.inRange ? "cell--out-of-range" : "",
+        c.date === today ? "cell--today" : "",
+      ]
+        .filter(Boolean)
+        .join(" ");
+      const style = c.done ? `background:${escapeAttr(h.color)}` : "";
+      const ariaLabel = c.done ? `${c.date}, done` : c.date;
+      return `<div
+        data-testid="heatmap-cell"
+        data-id="${escapeAttr(h.id)}"
+        data-date="${escapeAttr(c.date)}"
+        class="${classes}"
+        title="${escapeAttr(c.date)}"
+        ${style ? `style="${style}"` : ""}
+        aria-label="${escapeAttr(ariaLabel)}"
+      ></div>`;
+    })
+    .join("");
+
+  return `<div
+    data-testid="heatmap"
+    data-id="${escapeAttr(h.id)}"
+    class="heatmap-grid"
+    aria-label="${escapeHtml(h.name)} heatmap"
+  >${cellHtml}</div>`;
+}
+
+function renderHabitItem(h: Habit, today: string): string {
+  const cs = currentStreak(h.doneDates, today);
+  const ls = longestStreak(h.doneDates);
   const isRenaming = renamingId === h.id;
   const nameSection = isRenaming
     ? `<input
@@ -53,6 +100,12 @@ function renderHabitItem(h: Habit): string {
       ></span>
       ${nameSection}
       <button data-testid="delete-btn" data-id="${h.id}">Delete</button>
+      <div class="habit-streaks">
+        <span>Current streak: <strong data-testid="current-streak" data-id="${h.id}">${cs}</strong></span>
+        <span>Longest streak: <strong data-testid="longest-streak" data-id="${h.id}">${ls}</strong></span>
+      </div>
+      <button data-testid="mark-today-btn" data-id="${h.id}" data-date="${today}">Mark today done</button>
+      ${renderHeatmap(h, today)}
     </li>
   `;
 }
@@ -68,7 +121,7 @@ function escapeAttr(s: string): string {
   return s.replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
 
-function wireEvents(): void {
+function wireEvents(today: string): void {
   // Add-habit form submit
   const form = app.querySelector<HTMLFormElement>('[data-testid="add-habit-form"]')!;
   form.addEventListener("submit", (e) => {
@@ -92,7 +145,6 @@ function wireEvents(): void {
     if (target.matches('[data-testid="rename-btn"]')) {
       renamingId = target.dataset.id ?? null;
       render();
-      // Focus the rename input after re-render
       const input = app.querySelector<HTMLInputElement>('[data-testid="rename-input"]');
       input?.focus();
       input?.select();
@@ -117,6 +169,26 @@ function wireEvents(): void {
       const id = target.dataset.id ?? "";
       habits = deleteHabit(habits, id);
       if (renamingId === id) renamingId = null;
+      render();
+      return;
+    }
+
+    // Toggle via heatmap cell click (in-range cells only; out-of-range have pointer-events:none)
+    if (target.matches('[data-testid="heatmap-cell"]')) {
+      const id = target.dataset.id ?? "";
+      const date = target.dataset.date ?? "";
+      if (!id || !date) return;
+      habits = toggleDate(habits, id, date);
+      render();
+      return;
+    }
+
+    // Toggle via mark-today button
+    if (target.matches('[data-testid="mark-today-btn"]')) {
+      const id = target.dataset.id ?? "";
+      const date = target.dataset.date ?? today;
+      if (!id) return;
+      habits = toggleDate(habits, id, date);
       render();
       return;
     }

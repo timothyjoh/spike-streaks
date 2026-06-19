@@ -1,2 +1,3 @@
 {"ts":1781880768,"step":"init","status":"start","detail":"decomposed PROJECT.md into 5 milestones; node v25, port 5181 free, fresh repo"}
 {"ts":1781881025,"step":"m1","status":"done","detail":"scaffold+streak calc; unit 15/15 pass; build clean; sha 8ecdcdb"}
+{"ts":1781881499,"step":"m2","status":"done","detail":"localStorage store + CRUD UI; unit 35/35; browser-verified CRUD+persist PASS; sha 80199c3"}
